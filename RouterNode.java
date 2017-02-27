@@ -12,7 +12,7 @@ public class RouterNode {
   public RouterNode(int ID, RouterSimulator sim, int[] costs) {
     myID = ID;
     this.sim = sim;
-    myGUI =new GuiTextArea("  Output window for Router #"+ ID + "  ");
+    myGUI = new GuiTextArea("  Output window for Router #"+ ID + "  ");
 
     System.arraycopy(costs, 0, this.costs, 0, RouterSimulator.NUM_NODES);
 
@@ -26,10 +26,14 @@ public class RouterNode {
 
   //--------------------------------------------------
   public void recvUpdate(RouterPacket pkt) {
+    int newCost = 0;
     for (int i = 0; i < pkt.mincost.length; i++){
       dv[i][pkt.sourceid] = pkt.mincost[i] + costs[pkt.sourceid];
-      if (pkt.mincost[i]+costs[pkt.sourceid] < costs[i])
-          updateLinkCost(i,pkt.mincost[i]+costs[pkt.sourceid]);
+      if (pkt.mincost[i]+costs[pkt.sourceid] < costs[i]){
+        newCost = pkt.mincost[i]+costs[pkt.sourceid];
+        if (newCost > sim.INFINITY)newCost = sim.INFINITY;
+        updateLinkCost(i,newCost);
+      }
     }
   }
 
@@ -46,17 +50,17 @@ public class RouterNode {
     String line = "";
 
     myGUI.println("\nMincost table:");
-    line = "from   |";
+    line = "To router #  |";
     for (int i = 0; i < costs.length; i++)
       line += "\t"+i;
 
     myGUI.println(line);
 
     for (int i = 0; i < line.length(); i++){
-      myGUI.print("-");
+      myGUI.print("-----");
     }
 
-    line = "\nThis router:";
+    line = "\nCost:";
     for (int i = 0; i < costs.length; i++)
       line += "\t"+costs[i];
 
