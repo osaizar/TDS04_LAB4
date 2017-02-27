@@ -92,6 +92,9 @@ public class RouterNode {
   public void updateLinkCost(int dest, int newcost) {
     myGUI.println("New cost to get to "+dest+": "+newcost+" (old cost:"+costs[dest]+")");
     costs[dest] = newcost;
+    for (int i = 0; i < costs.length; i++){
+      sendUpdate(new RouterPacket(myID, i, costs));
+    }
   }
 
 }
