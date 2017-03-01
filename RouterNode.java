@@ -8,6 +8,7 @@ public class RouterNode {
 
   //  dv[via][to]
   private int[][] dv = new int[RouterSimulator.NUM_NODES][RouterSimulator.NUM_NODES];
+  private int[] routes = new int[RouterSimulator.NUM_NODES]; // best route
 
   //--------------------------------------------------
   public RouterNode(int ID, RouterSimulator sim, int[] costs) {
@@ -47,19 +48,19 @@ public class RouterNode {
         }
       }
     }
-    updateCosts();
+    updateRoutes();
   }
 
-  public void updateCosts(){
-	  for(int to = 0; to < costs.length; to++){
+  public void updateRoutes(){
+	  for(int to = 0; to < routes.length; to++){
 		  if (to != myID){
 			  int cost = 999;
-			  for(int via = 0; via < costs.length; via++){
+			  for(int via = 0; via < routes.length; via++){
 				  if (via != myID){
 					  if (dv[via][to] <= cost && dv[via][to] > 0)cost = dv[via][to];
 				  }
 			  }
-			  costs[to] = cost;
+			  routes[to] = cost;
 		  }
 	  }
   }
@@ -120,6 +121,12 @@ public class RouterNode {
       line += "\t"+costs[i];
 
     myGUI.println(line);
+
+      line = "routes:";
+      for (int i = 0; i < routes.length; i++)
+        line += "\t"+routes[i];
+
+    myGUI.println(line);
   }
 
   //--------------------------------------------------
@@ -133,7 +140,8 @@ public class RouterNode {
     	}
     }
     dv[dest][dest] = newcost;
-    updateCosts();
+    costs[dest] = newcost;
+    updateRoutes();
     broadcastCosts();
   }
 
