@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Inline method &apos;RouterNode.broadcastCosts()&apos; in &apos;RouterNode&apos;&#x0A;- Original project: &apos;RouterSimulation&apos;&#x0A;- Original element: &apos;RouterNode.broadcastCosts()&apos;&#x0A;- Replace all references to method with statements" delete="false" description="Inline method &apos;broadcastCosts&apos;" flags="786438" id="org.eclipse.jdt.ui.inline.method" input="/src&lt;{RouterNode.java" mode="1" selection="711 157" stamp="1488324934084" version="1.0"/>
+</session>

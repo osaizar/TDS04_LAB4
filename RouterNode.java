@@ -6,35 +6,62 @@ public class RouterNode {
   private RouterSimulator sim;
   private int[] costs = new int[RouterSimulator.NUM_NODES];
 
+  //  dv[via][to]
   private int[][] dv = new int[RouterSimulator.NUM_NODES][RouterSimulator.NUM_NODES];
 
   //--------------------------------------------------
   public RouterNode(int ID, RouterSimulator sim, int[] costs) {
     myID = ID;
     this.sim = sim;
-    myGUI = new GuiTextArea("  Output window for Router #"+ ID + "  ");
+    myGUI =new GuiTextArea("  Output window for Router #"+ ID + "  ");
 
     System.arraycopy(costs, 0, this.costs, 0, RouterSimulator.NUM_NODES);
 
-    for(int i = 0; i < costs.length; i++){
-      if (costs[i] < 999 && costs[i] > 0){
-        sendUpdate(new RouterPacket(myID, i, costs));
-      }
+    for (int i = 0; i < costs.length; i++){
+    	dv[i][i] = costs[i];
     }
 
+    for(int i = 0; i < costs.length; i++){
+		  if (i != myID){
+			  sendUpdate(new RouterPacket(myID, i, costs));
+		}
+	  }
+  }
+
+  public void broadcastCosts(){
+	 for(int i = 0; i < costs.length; i++){
+		  if (i != myID){
+			  sendUpdate(new RouterPacket(myID, i, costs));
+		}
+	  }
   }
 
   //--------------------------------------------------
   public void recvUpdate(RouterPacket pkt) {
-    int newCost = 0;
     for (int i = 0; i < pkt.mincost.length; i++){
-      dv[i][pkt.sourceid] = pkt.mincost[i] + costs[pkt.sourceid];
-      if (pkt.mincost[i]+costs[pkt.sourceid] < costs[i]){
-        newCost = pkt.mincost[i]+costs[pkt.sourceid];
-        if (newCost > sim.INFINITY)newCost = sim.INFINITY;
-        updateLinkCost(i,newCost);
+      if (i != pkt.sourceid){
+        //the cost to get to i from pkt.src is the cost to get to pkt.src + the cost to get to i from pkt.src
+        dv[pkt.sourceid][i] = pkt.mincost[i]+dv[pkt.sourceid][pkt.sourceid];
+        if (dv[pkt.sourceid][i] > RouterSimulator.INFINITY) {
+          dv[pkt.sourceid][i] = RouterSimulator.INFINITY;
+        }
       }
     }
+    updateCosts();
+  }
+
+  public void updateCosts(){
+	  for(int to = 0; to < costs.length; to++){
+		  if (to != myID){
+			  int cost = 999;
+			  for(int via = 0; via < costs.length; via++){
+				  if (via != myID){
+					  if (dv[via][to] <= cost && dv[via][to] > 0)cost = dv[via][to];
+				  }
+			  }
+			  costs[to] = cost;
+		  }
+	  }
   }
 
 
@@ -46,10 +73,38 @@ public class RouterNode {
 
   //--------------------------------------------------
   public void printDistanceTable() {
-
     String line = "";
 
-    myGUI.println("\nMincost table:");
+    myGUI.println("Current table for " + myID +
+      "  at time " + sim.getClocktime());
+
+    myGUI.println("\nDV:");
+    line = "via    |";
+    for (int i = 0; i < costs.length; i++)
+      line += "\t"+i;
+
+    myGUI.println(line);
+
+    for (int i = 0; i < line.length(); i++){
+      myGUI.print("-------");
+    }
+
+    myGUI.print("\n");
+
+    for (int i = 0; i < costs.length; i++){
+      line = "to "+i+" |";
+      for (int k = 0; k < costs.length; k++){
+        if(k != myID && i != myID) {
+          if (dv[k][i] == 0)line += "\t?";
+          else line += "\t"+dv[k][i];
+        }else{
+          line += "\t-";
+        }
+      }
+      myGUI.println(line);
+    }
+
+    myGUI.println("\ncosts table:");
     line = "To router #  |";
     for (int i = 0; i < costs.length; i++)
       line += "\t"+i;
@@ -57,44 +112,29 @@ public class RouterNode {
     myGUI.println(line);
 
     for (int i = 0; i < line.length(); i++){
-      myGUI.print("-----");
+      myGUI.print("----");
     }
 
-    line = "\nCost:";
+    line = "\ncost:";
     for (int i = 0; i < costs.length; i++)
       line += "\t"+costs[i];
 
     myGUI.println(line);
   }
 
-  private void printFullTable(){ //TODO: Doesn't work as it should
-    String line = "";
-	  myGUI.println("Current table for " + myID +
-			"  at time " + sim.getClocktime());
-
-    myGUI.println("Distancetable:");
-    line = "dst   |";
-    for (int i = 0; i < costs.length; i++)
-      line += "\t"+i;
-
-    myGUI.println(line);
-
-    for (int i = 0; i < costs.length; i++){
-      line = "nbr "+i+" |";
-      for (int k = 0; k < costs.length; k++){
-        line += "\t"+dv[i][k];
-      }
-      myGUI.println(line);
-    }
-  }
-
   //--------------------------------------------------
   public void updateLinkCost(int dest, int newcost) {
-    myGUI.println("New cost to get to "+dest+": "+newcost+" (old cost:"+costs[dest]+")");
-    costs[dest] = newcost;
-    for (int i = 0; i < costs.length; i++){
-      sendUpdate(new RouterPacket(myID, i, costs));
+    myGUI.println("New cost to get to "+dest+": "+newcost+" (old cost:"+dv[dest][dest]+")");
+    int oldcost = dv[dest][dest];
+    for (int to = 0; to < RouterSimulator.NUM_NODES; to++){
+    	if (to != myID && dv[dest][to] < RouterSimulator.INFINITY){
+        	dv[dest][to] -= oldcost;
+        	dv[dest][to] += newcost;
+    	}
     }
+    dv[dest][dest] = newcost;
+    updateCosts();
+    broadcastCosts();
   }
 
 }
