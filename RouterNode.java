@@ -20,35 +20,34 @@ public class RouterNode {
 
     for (int i = 0; i < costs.length; i++){
     	dv[i][i] = costs[i];
+      routes[i] = costs[i];
     }
 
-    for(int i = 0; i < costs.length; i++){
-		  if (i != myID){
-			  sendUpdate(new RouterPacket(myID, i, costs));
-		}
-	  }
+    broadcastCosts();
   }
 
   public void broadcastCosts(){
 	 for(int i = 0; i < costs.length; i++){
 		  if (i != myID){
-			  sendUpdate(new RouterPacket(myID, i, costs));
+			  sendUpdate(new RouterPacket(myID, i, routes));
 		}
 	  }
   }
 
   //--------------------------------------------------
   public void recvUpdate(RouterPacket pkt) {
+    boolean changes = false;
     for (int i = 0; i < pkt.mincost.length; i++){
-      if (i != pkt.sourceid){
         //the cost to get to i from pkt.src is the cost to get to pkt.src + the cost to get to i from pkt.src
-        dv[pkt.sourceid][i] = pkt.mincost[i]+dv[pkt.sourceid][pkt.sourceid];
+      if(dv[pkt.sourceid][i] != pkt.mincost[i]+costs[pkt.sourceid]){
+        changes = true;
+        dv[pkt.sourceid][i] = pkt.mincost[i]+costs[pkt.sourceid];
         if (dv[pkt.sourceid][i] > RouterSimulator.INFINITY) {
           dv[pkt.sourceid][i] = RouterSimulator.INFINITY;
+          }
         }
       }
-    }
-    updateRoutes();
+    if (changes)updateRoutes();
   }
 
   public void updateRoutes(){
@@ -63,6 +62,7 @@ public class RouterNode {
 			  routes[to] = cost;
 		  }
 	  }
+    broadcastCosts();
   }
 
 
