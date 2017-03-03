@@ -7,11 +7,12 @@ public class RouterNode {
   private RouterSimulator sim;
   private int[] costs = new int[RouterSimulator.NUM_NODES];
 
-  //  dv[via][to]
-  private int[][] dv = new int[RouterSimulator.NUM_NODES][RouterSimulator.NUM_NODES];
-  private int[] routes = new int[RouterSimulator.NUM_NODES]; // best route
+  //  distanceTable[via][to]
+  private int[][] distanceTable = new int[RouterSimulator.NUM_NODES][RouterSimulator.NUM_NODES];
+  private int[] dv = new int[RouterSimulator.NUM_NODES]; // best route
+  private int[] route = new int[RouterSimulator.NUM_NODES]; // first hop
 
-  private boolean poison = false;
+  private boolean poison = true;
 
   //--------------------------------------------------
   public RouterNode(int ID, RouterSimulator sim, int[] costs) {
@@ -22,27 +23,27 @@ public class RouterNode {
     System.arraycopy(costs, 0, this.costs, 0, RouterSimulator.NUM_NODES);
 
     for (int i = 0; i < costs.length; i++){
-      dv[i][i] = costs[i];
-      routes[i] = costs[i];
+      distanceTable[i][i] = costs[i];
+      dv[i] = costs[i];
     }
 
     broadcastCosts();
   }
 
   public void broadcastCosts(){
-    int[] tmproutes = new int[routes.length];
+    int[] tmpdv = new int[dv.length];
 
-    for(int rId = 0; rId < routes.length; rId++){
-      System.arraycopy(routes, 0, tmproutes, 0, RouterSimulator.NUM_NODES);
+    for(int rId = 0; rId < dv.length; rId++){
+      System.arraycopy(dv, 0, tmpdv, 0, RouterSimulator.NUM_NODES);
       if (rId != myID){
         if (poison){
-          for (int to = 0; to < routes.length; to++){
-            if (tmproutes[to] == dv[rId][to]){
-              tmproutes[to] = RouterSimulator.INFINITY;
+          for (int to = 0; to < dv.length; to++){
+            if (rId == route[to] && rId != to && myID != to){
+              tmpdv[to] = RouterSimulator.INFINITY;
             }
           }
         }
-        sendUpdate(new RouterPacket(myID, rId, tmproutes));
+        sendUpdate(new RouterPacket(myID, rId, tmpdv));
       }
     }
   }
@@ -52,35 +53,39 @@ public class RouterNode {
 
     for (int i = 0; i < pkt.mincost.length; i++){
       //the cost to get to i from pkt.src is the cost to get to pkt.src + the cost to get to i from pkt.src
-      if(dv[pkt.sourceid][i] != pkt.mincost[i]+costs[pkt.sourceid]){
-        dv[pkt.sourceid][i] = pkt.mincost[i]+costs[pkt.sourceid];
-        if (dv[pkt.sourceid][i] > RouterSimulator.INFINITY) {
-          dv[pkt.sourceid][i] = RouterSimulator.INFINITY;
+      if(distanceTable[pkt.sourceid][i] != pkt.mincost[i]+costs[pkt.sourceid]){
+        distanceTable[pkt.sourceid][i] = pkt.mincost[i]+costs[pkt.sourceid];
+        if (distanceTable[pkt.sourceid][i] > RouterSimulator.INFINITY) {
+          distanceTable[pkt.sourceid][i] = RouterSimulator.INFINITY;
         }
       }
     }
-    updateRoutes();
+    updatedv();
   }
 
-  public void updateRoutes(){
+  public void updatedv(){
     boolean changes = false;
-    int tmproutes[] = new int[routes.length];
-    for(int to = 0; to < routes.length; to++){
+    int tmpdv[] = new int[dv.length];
+    for(int to = 0; to < dv.length; to++){
       if (to != myID){
         int cost = 999;
-        for(int via = 0; via < routes.length; via++){
+        for(int via = 0; via < dv.length; via++){
           if (via != myID){
-            if (dv[via][to] <= cost && dv[via][to] > 0)cost = dv[via][to];
+            if (distanceTable[via][to] <= cost && distanceTable[via][to] > 0){
+              cost = distanceTable[via][to];
+              route[to] = via;
+            }
           }
         }
-        tmproutes[to] = cost;
+        tmpdv[to] = cost;
       }
     }
-    if (!Arrays.equals(tmproutes, routes)){
-      System.arraycopy(tmproutes, 0,  routes, 0, RouterSimulator.NUM_NODES);
+    if (!Arrays.equals(tmpdv, dv)){
+      System.arraycopy(tmpdv, 0,  dv, 0, RouterSimulator.NUM_NODES);
       broadcastCosts();
     }
   }
+
 
 
   //--------------------------------------------------
@@ -96,7 +101,7 @@ public class RouterNode {
     myGUI.println("Current table for " + myID +
     "  at time " + sim.getClocktime());
 
-    myGUI.println("\nDV:");
+    myGUI.println("\nDistance Table:");
     line = "via    |";
     for (int i = 0; i < costs.length; i++)
     line += "\t"+i;
@@ -113,8 +118,8 @@ public class RouterNode {
       line = "to "+i+" |";
       for (int k = 0; k < costs.length; k++){
         if(k != myID && i != myID) {
-          if (dv[k][i] == 0)line += "\t?";
-          else line += "\t"+dv[k][i];
+          if (distanceTable[k][i] == 0)line += "\t?";
+          else line += "\t"+distanceTable[k][i];
         }else{
           line += "\t-";
         }
@@ -133,32 +138,35 @@ public class RouterNode {
       myGUI.print("----");
     }
 
-    line = "\ncost:";
+    line = "\nDV:";
     for (int i = 0; i < costs.length; i++)
-    line += "\t"+costs[i];
+    line += "\t"+dv[i];
 
     myGUI.println(line);
 
-    line = "routes:";
-    for (int i = 0; i < routes.length; i++)
-    line += "\t"+routes[i];
+    line = "First hop:";
+    for (int i = 0; i < dv.length; i++){
+      if (i != myID)line += "\t"+route[i];
+      else line +=  "\t-";
+    }
+
 
     myGUI.println(line);
   }
 
   //--------------------------------------------------
   public void updateLinkCost(int dest, int newcost) {
-    myGUI.println("New cost to get to "+dest+": "+newcost+" (old cost:"+dv[dest][dest]+")");
-    int oldcost = dv[dest][dest];
+    myGUI.println("New cost to get to "+dest+": "+newcost+" (old cost:"+distanceTable[dest][dest]+")");
+    int oldcost = distanceTable[dest][dest];
     for (int to = 0; to < RouterSimulator.NUM_NODES; to++){
-      if (to != myID && dv[dest][to] < RouterSimulator.INFINITY){
-        dv[dest][to] -= oldcost;
-        dv[dest][to] += newcost;
+      if (to != myID && distanceTable[dest][to] < RouterSimulator.INFINITY){
+        distanceTable[dest][to] -= oldcost;
+        distanceTable[dest][to] += newcost;
       }
     }
-    dv[dest][dest] = newcost;
+    distanceTable[dest][dest] = newcost;
     costs[dest] = newcost;
-    updateRoutes();
+    updatedv();
     broadcastCosts();
   }
 
