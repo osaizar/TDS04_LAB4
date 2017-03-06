@@ -53,11 +53,9 @@ public class RouterNode {
 
     for (int i = 0; i < pkt.mincost.length; i++){
       //the cost to get to i from pkt.src is the cost to get to pkt.src + the cost to get to i from pkt.src
-      if(distanceTable[pkt.sourceid][i] != pkt.mincost[i]+costs[pkt.sourceid]){
-        distanceTable[pkt.sourceid][i] = pkt.mincost[i]+costs[pkt.sourceid];
-        if (distanceTable[pkt.sourceid][i] > RouterSimulator.INFINITY) {
-          distanceTable[pkt.sourceid][i] = RouterSimulator.INFINITY;
-        }
+      distanceTable[pkt.sourceid][i] = pkt.mincost[i]+costs[pkt.sourceid];
+      if (distanceTable[pkt.sourceid][i] > RouterSimulator.INFINITY) {
+        distanceTable[pkt.sourceid][i] = RouterSimulator.INFINITY;
       }
     }
     updatedv();
